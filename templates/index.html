@@ -6,6 +6,7 @@
       <h1>Project Home</h1>
       <p>Upload an excel spreadsheet and ask questions about it.</p>
       <form action="/upload", method="POST", enctype="multipart/form-data">
+        <label for="file">Select an Excel file(xls or xlsx) and keep the file size to 5 GB max:</label>
         <input type="file" name="file"  accept=".xlsx, .xls"/>
         <input type="submit" value="Upload" />
         
