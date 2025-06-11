@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+  <html>
+    <title>Project Home</title>
+    <body>
+
+      <h1>Project Home</h1>
+      <p>Upload an excel spreadsheet and ask questions about it.</p>
+      <form action="/upload", method="POST", enctype="multipart/form-data">
+        <input type="file" name="file"  accept=".xlsx, .xls"/>
+        <input type="submit" value="Upload" />
+        
+      </form>
+
+      <div>{{ file_data|safe }}</div>
+
+    </body>
+  </html>
