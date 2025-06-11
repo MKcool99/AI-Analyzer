@@ -8,11 +8,14 @@
       <form action="/upload", method="POST", enctype="multipart/form-data">
         <label for="file">Select an Excel file(xls or xlsx) and keep the file size to 5 GB max:</label>
         <input type="file" name="file"  accept=".xlsx, .xls"/>
+        <input type="text" name="question" placeholder="Ask a question about the file" />
         <input type="submit" value="Upload" />
         
       </form>
 
-      <div>{{ file_data|safe }}</div>
+      <div>Your data: {{ file_data|safe }}
+      </div>
+      <div>Your question: {{ query|safe }}</div>
 
     </body>
   </html>
