@@ -1,5 +1,3 @@
-#if you want to vibe code download the copilot extension it is quite nice
-
 from flask import Flask, render_template, request
 import os
 import pandas as pd
@@ -17,11 +15,12 @@ def index():
 def upload_file():
     if request.method == 'POST':
         file = request.files['file']
+        query = request.form.get('question')
         end = file.filename.split('.')[-1]
         engine = 'openpyxl' if end == 'xlsx' else 'xlrd'
         df = pd.read_excel(file, engine=engine)
         file_data = df.to_html(classes='table table-bordered', index=False)
-    return render_template('index.html', file_data=file_data)   
+    return render_template('index.html', file_data=file_data, query=query)
 
 # Start the Flask application
 if __name__ == '__main__':
