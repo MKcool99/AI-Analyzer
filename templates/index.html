@@ -1,21 +1,124 @@
 <!DOCTYPE html>
-  <html>
-    <title>Project Home</title>
-    <body>
-
-      <h1>Project Home</h1>
-      <p>Upload an excel spreadsheet and ask questions about it.</p>
-      <form action="/upload", method="POST", enctype="multipart/form-data">
-        <label for="file">Select an Excel file(xls or xlsx) and keep the file size to 5 GB max:</label>
-        <input type="file" name="file"  accept=".xlsx, .xls"/>
-        <input type="text" name="question" placeholder="Ask a question about the file" />
-        <input type="submit" value="Upload" />
-        
-      </form>
-
-      <div>Your data: {{ file_data|safe }}
-      </div>
-      <div>Your question: {{ query|safe }}</div>
-
-    </body>
-  </html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel File Analyzer</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .container {
+            max-width: 1200px;
+            margin-top: 2rem;
+        }
+        .file-info {
+            background-color: #f8f9fa;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        #data-table {
+            font-size: 0.85rem;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .alert {
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12">
+                <h1 class="text-center mb-4">Excel File Analyzer</h1>
+                <p class="text-center text-muted">Upload an Excel spreadsheet and ask questions about it.</p>
+                
+                <!-- Flash messages -->
+                {% with messages = get_flashed_messages() %}
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+                
+                <!-- Success message -->
+                {% if success %}
+                    <div class="alert alert-success alert-dismissible fade show" role="alert">
+                        <strong>File Upload Successful!</strong> Your file "{{ file_info.filename }}" has been received and your question has been recorded. Question answering feature coming soon!
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endif %}
+                
+                <!-- Upload form -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <form action="/upload" method="POST" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="file" class="form-label">
+                                    Select an Excel file (.xlsx or .xls) - Maximum size: 5GB
+                                </label>
+                                <input type="file" 
+                                       class="form-control" 
+                                       name="file" 
+                                       id="file"
+                                       accept=".xlsx,.xls" 
+                                       required />
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="question" class="form-label">Ask a question about the file</label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       name="question" 
+                                       id="question"
+                                       placeholder="e.g., What is the average value in column A?" 
+                                       required />
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary">
+                                Upload and Analyze
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Results section -->
+                {% if file_info %}
+                    <div class="file-info">
+                        <h5>File Information:</h5>
+                        <p><strong>Filename:</strong> {{ file_info.filename }}</p>
+                        <p><strong>Rows:</strong> {{ file_info.rows }}</p>
+                        <p><strong>Columns:</strong> {{ file_info.columns }}</p>
+                        <p><strong>Column Names:</strong> {{ file_info.column_names | join(', ') }}</p>
+                    </div>
+                {% endif %}
+                
+                {% if query %}
+                    <div class="alert alert-info">
+                        <strong>Your Question:</strong> {{ query }}
+                        <br><small class="text-muted">Note: Question processing feature is coming in the next development phase. For now, we're confirming your question was received.</small>
+                    </div>
+                {% endif %}
+                
+                {% if file_data %}
+                    <div class="card">
+                        <div class="card-header">
+                            <h5>File Contents Preview</h5>
+                            <small class="text-muted">This shows your uploaded data has been successfully read. Question answering functionality will be added in the next phase.</small>
+                        </div>
+                        <div class="card-body" style="overflow-x: auto;">
+                            {{ file_data | safe }}
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
