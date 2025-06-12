@@ -2,4 +2,3 @@ flask
 pandas
 openpyxl
 xlrd
-os
