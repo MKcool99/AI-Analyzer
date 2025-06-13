@@ -64,17 +64,36 @@ def upload_file():
         #read the file
         df = pd.read_excel(file, engine=engine)
         
-        #df to html for display
-        file_data = df.to_html(classes='table table-bordered table-striped', 
-                              index=False, 
-                              table_id='data-table')
+        #get basic statistics for numeric columns
+        numeric_stats = {}
+        for col in df.select_dtypes(include=['number']).columns:
+            numeric_stats[col] = {
+                'sum': df[col].sum(),
+                'mean': df[col].mean(),
+                'count': df[col].count()
+            }
+        
+        #get sheet names (if multiple sheets)
+        try:
+            xl_file = pd.ExcelFile(file, engine=engine)
+            sheet_names = xl_file.sheet_names
+        except:
+            sheet_names = ['Sheet1']  # default if can't read sheet names
+        
+        #df to html for display (limit to first 100 rows for performance)
+        display_df = df.head(100) if len(df) > 100 else df
+        file_data = display_df.to_html(classes='table table-bordered table-striped', 
+                                      index=False, 
+                                      table_id='data-table')
         
         #get file info
         file_info = {
             'filename': filename,
             'rows': len(df),
             'columns': len(df.columns),
-            'column_names': list(df.columns)
+            'column_names': list(df.columns),
+            'sheet_names': sheet_names,
+            'numeric_stats': numeric_stats
         }
         
         return render_template('index.html', 
