@@ -3,7 +3,7 @@ from openai import OpenAI
 # You can also set the API key using an environment variable
 # os.environ["OPENAI_API_KEY"] = "your-api-key-here"
 
-client = OpenAI(api_key=""
+client = OpenAI(api_key="")
 
 def ask_openai(prompt, model="gpt-3.5-turbo", temperature=0.7, max_tokens=300):
     try:
