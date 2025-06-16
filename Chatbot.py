@@ -2,9 +2,9 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import os
 
-load_dotenv()  # Load environment variables from .env
+load_dotenv()  
 
-client = OpenAI()  # Automatically uses OPENAI_API_KEY from env
+client = OpenAI()
 
 def ask_openai(prompt, model="gpt-3.5-turbo", temperature=0.7, max_tokens=300):
     try:
