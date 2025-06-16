@@ -1,9 +1,10 @@
 from openai import OpenAI
+from dotenv import load_dotenv
+import os
 
-# You can also set the API key using an environment variable
-# os.environ["OPENAI_API_KEY"] = "your-api-key-here"
+load_dotenv()  # Load environment variables from .env
 
-client = OpenAI(api_key="")
+client = OpenAI()  # Automatically uses OPENAI_API_KEY from env
 
 def ask_openai(prompt, model="gpt-3.5-turbo", temperature=0.7, max_tokens=300):
     try:
