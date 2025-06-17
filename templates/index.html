@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Excel File Analyzer</title>
+    <title>Excel File Analyzer with AI</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
     <style>
         .container {
@@ -16,6 +17,24 @@
             padding: 1rem;
             margin-bottom: 1rem;
         }
+        .ai-answer {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .ai-answer h5 {
+            color: #ffffff;
+            margin-bottom: 1rem;
+        }
+        .ai-answer-content {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1rem;
+            border-radius: 0.375rem;
+            backdrop-filter: blur(10px);
+        }
         #data-table {
             font-size: 0.85rem;
             max-height: 400px;
@@ -24,16 +43,18 @@
         .alert {
             margin-top: 1rem;
         }
+        .loading {
+            display: none;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="row">
             <div class="col-md-12">
-                <h1 class="text-center mb-4">Excel File Analyzer</h1>
-                <p class="text-center text-muted">Upload an Excel spreadsheet and ask questions about it.</p>
-
-                <!-- Flash messages -->
+                <h1 class="text-center mb-4">🤖 AI Excel Analyzer</h1>
+                <p class="text-center text-muted">Upload an Excel spreadsheet and get AI-powered insights!</p>
+                
                 {% with messages = get_flashed_messages() %}
                     {% if messages %}
                         {% for message in messages %}
@@ -44,19 +65,17 @@
                         {% endfor %}
                     {% endif %}
                 {% endwith %}
-
-                <!-- Success message -->
+                
                 {% if success %}
                     <div class="alert alert-success alert-dismissible fade show" role="alert">
-                        <strong>File Upload Successful!</strong> Your file "{{ file_info.filename }}" has been received and your question has been recorded. Question answering feature coming soon!
+                        <strong>Analysis Complete!</strong> Your file "{{ file_info.filename }}" has been processed and analyzed by AI.
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
                 {% endif %}
-
-                <!-- Upload form -->
+                
                 <div class="card mb-4">
                     <div class="card-body">
-                        <form action="/upload" method="POST" enctype="multipart/form-data">
+                        <form action="/upload" method="POST" enctype="multipart/form-data" id="uploadForm">
                             <div class="mb-3">
                                 <label for="file" class="form-label">
                                     Select an Excel file (.xlsx or .xls) - Maximum size: 5GB
@@ -68,55 +87,90 @@
                                        accept=".xlsx,.xls" 
                                        required />
                             </div>
-
+                            
                             <div class="mb-3">
-                                <label for="question" class="form-label">Ask a question about the file</label>
+                                <label for="question" class="form-label">Ask a question about your data</label>
                                 <input type="text" 
                                        class="form-control" 
                                        name="question" 
                                        id="question"
-                                       placeholder="e.g., What is the average value in column A?" 
+                                       placeholder="e.g., What is the total revenue? Which month had the highest sales?" 
                                        required />
                             </div>
-
-                            <button type="submit" class="btn btn-primary">
-                                Upload and Analyze
+                            
+                            <button type="submit" class="btn btn-primary" id="submitBtn">
+                                📊 Analyze with AI
                             </button>
+                            
+                            <div class="loading mt-3" id="loadingMsg">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <span class="ms-2">AI is analyzing your data...</span>
+                            </div>
                         </form>
                     </div>
                 </div>
-
-                <!-- Results section -->
+                
+                {% if ai_answer %}
+                    <div class="ai-answer">
+                        <h5>🤖 AI Analysis Results</h5>
+                        <div class="ai-answer-content">
+                            <strong>Your Question:</strong> {{ query }}
+                            <hr style="border-color: rgba(255,255,255,0.3);">
+                            <div style="white-space: pre-line;">{{ ai_answer }}</div>
+                        </div>
+                    </div>
+                {% endif %}
+                
                 {% if file_info %}
                     <div class="file-info">
-                        <h5>File Information:</h5>
-                        <p><strong>Filename:</strong> {{ file_info.filename }}</p>
-                        <p><strong>Rows:</strong> {{ file_info.rows }}</p>
-                        <p><strong>Columns:</strong> {{ file_info.columns }}</p>
-                        <p><strong>Sheet Names:</strong> {{ file_info.sheet_names | join(', ') }}</p>
-                        <p><strong>Column Names:</strong> {{ file_info.column_names | join(', ') }}</p>
+                        <h5>📋 File Information</h5>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Filename:</strong> {{ file_info.filename }}</p>
+                                <p><strong>Rows:</strong> {{ file_info.rows:,d }}</p>
+                                <p><strong>Columns:</strong> {{ file_info.columns }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Sheet Names:</strong> {{ file_info.sheet_names | join(', ') }}</p>
+                                <p><strong>Column Names:</strong> {{ file_info.column_names | join(', ') }}</p>
+                            </div>
+                        </div>
                         
                         {% if file_info.numeric_stats %}
-                            <h6>Numeric Column Statistics:</h6>
-                            {% for col, stats in file_info.numeric_stats.items() %}
-                                <p><strong>{{ col }}:</strong> Sum={{ "%.2f"|format(stats.sum) }}, Average={{ "%.2f"|format(stats.mean) }}, Count={{ stats.count }}</p>
-                            {% endfor %}
+                            <h6>📊 Numeric Column Statistics</h6>
+                            <div class="row">
+                                {% for col, stats in file_info.numeric_stats.items() %}
+                                    <div class="col-md-4 mb-3">
+                                        <div class="card">
+                                            <div class="card-body">
+                                                <h6 class="card-title">{{ col }}</h6>
+                                                <p class="card-text">
+                                                    <strong>Sum:</strong> {{ "{:,.2f}".format(stats.sum) }}<br>
+                                                    <strong>Average:</strong> {{ "{:,.2f}".format(stats.mean) }}<br>
+                                                    <strong>Count:</strong> {{ stats.count }}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            </div>
                         {% endif %}
                     </div>
                 {% endif %}
-
-                {% if query %}
-                    <div class="alert alert-info">
-                        <strong>Your Question:</strong> {{ query }}
-                        <br><small class="text-muted">Note: Question processing feature is coming in the next development phase. For now, we're confirming your question was received.</small>
-                    </div>
-                {% endif %}
-
+                
                 {% if file_data %}
                     <div class="card">
                         <div class="card-header">
-                            <h5>File Contents Preview</h5>
-                            <small class="text-muted">This shows your uploaded data has been successfully read. Question answering functionality will be added in the next phase.</small>
+                            <h5>📈 Data Preview</h5>
+                            <small class="text-muted">
+                                {% if file_info.rows > 100 %}
+                                    Showing first 100 rows of {{ file_info.rows:,d }} total rows
+                                {% else %}
+                                    Showing all {{ file_info.rows }} rows
+                                {% endif %}
+                            </small>
                         </div>
                         <div class="card-body" style="overflow-x: auto;">
                             {{ file_data | safe }}
@@ -126,7 +180,13 @@
             </div>
         </div>
     </div>
-
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', function() {
+            document.getElementById('submitBtn').disabled = true;
+            document.getElementById('loadingMsg').style.display = 'block';
+        });
+    </script>
 </body>
 </html>
