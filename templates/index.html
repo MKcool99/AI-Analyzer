@@ -43,8 +43,13 @@
         .alert {
             margin-top: 1rem;
         }
-        .loading {
-            display: none;
+        .alert-sm {
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+        }
+        .trend-badge {
+            font-size: 0.75rem;
         }
     </style>
 </head>
@@ -54,7 +59,7 @@
             <div class="col-md-12">
                 <h1 class="text-center mb-4">🤖 AI Excel Analyzer</h1>
                 <p class="text-center text-muted">Upload an Excel spreadsheet and get AI-powered insights!</p>
-                
+
                 {% with messages = get_flashed_messages() %}
                     {% if messages %}
                         {% for message in messages %}
@@ -65,14 +70,14 @@
                         {% endfor %}
                     {% endif %}
                 {% endwith %}
-                
+
                 {% if success %}
                     <div class="alert alert-success alert-dismissible fade show" role="alert">
                         <strong>Analysis Complete!</strong> Your file "{{ file_info.filename }}" has been processed and analyzed by AI.
                         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                     </div>
                 {% endif %}
-                
+
                 <div class="card mb-4">
                     <div class="card-body">
                         <form action="/upload" method="POST" enctype="multipart/form-data" id="uploadForm">
@@ -111,10 +116,10 @@
                         </form>
                     </div>
                 </div>
-                
+     
                 {% if ai_answer %}
                     <div class="ai-answer">
-                        <h5>🤖 AI Analysis Results</h5>
+                        <h5>🤖 AI Financial Analysis</h5>
                         <div class="ai-answer-content">
                             <strong>Your Question:</strong> {{ query }}
                             <hr style="border-color: rgba(255,255,255,0.3);">
@@ -123,6 +128,55 @@
                     </div>
                 {% endif %}
                 
+              
+                {% if errors or trends %}
+                    <div class="row mb-4">
+                        {% if errors %}
+                            <div class="col-md-6">
+                                <div class="card border-warning">
+                                    <div class="card-header bg-warning text-dark">
+                                        <h6>⚠️ Data Quality Issues</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        {% for error in errors[:5] %}
+                                            <div class="alert alert-warning alert-sm mb-2">{{ error }}</div>
+                                        {% endfor %}
+                                        {% if errors|length > 5 %}
+                                            <small class="text-muted">... and {{ errors|length - 5 }} more issues</small>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+                        
+                        {% if trends %}
+                            <div class="col-md-6">
+                                <div class="card border-success">
+                                    <div class="card-header bg-success text-white">
+                                        <h6>📈 Trend Analysis</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        {% for trend in trends[:3] %}
+                                            <div class="mb-3">
+                                                <strong>{{ trend.column }}:</strong>
+                                                <span class="badge bg-{% if trend.direction == 'increasing' %}success{% elif trend.direction == 'decreasing' %}danger{% else %}secondary{% endif %}">
+                                                    {{ trend.direction.upper() }}
+                                                </span>
+                                                <br>
+                                                <small class="text-muted">
+                                                    {{ "{:,.2f}".format(trend.start_value) }} → {{ "{:,.2f}".format(trend.end_value) }} 
+                                                    ({{ "{:+.1f}".format(trend.change_percent) }}%)
+                                                </small>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endif %}
+                
+       
                 {% if file_info %}
                     <div class="file-info">
                         <h5>📋 File Information</h5>
@@ -160,6 +214,7 @@
                     </div>
                 {% endif %}
                 
+    
                 {% if file_data %}
                     <div class="card">
                         <div class="card-header">
