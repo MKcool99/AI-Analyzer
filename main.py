@@ -246,7 +246,7 @@ Answer:"""
                 {"role": "system", "content": "You are a professional financial data analyst with expertise in Excel analysis, trend identification, and business intelligence."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.3
+            temperature=0.3,
             max_tokens=600,
         )
         return chat_completion.choices[0].message.content.strip()
