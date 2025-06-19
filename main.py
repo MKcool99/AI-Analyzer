@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, flash, redirect, url_for
+from flask import Flask, render_template, request, flash, redirect, url_for, session, jsonify
 import os
 import pandas as pd
 import numpy as np
@@ -8,6 +8,9 @@ from dotenv import load_dotenv
 import openpyxl
 from datetime import datetime
 import re
+import uuid
+import pickle
+import tempfile
 
 load_dotenv()
 
@@ -15,35 +18,30 @@ app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024 * 1024 
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 
+file_store = {}
 
 client = OpenAI()
 
-
 ALLOWED_EXTENSIONS = {'xls', 'xlsx'}
-
 
 def allowed_file(filename):
     """Check if the uploaded file has an allowed extension"""
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-
 def detect_data_errors(df):
     """Detect common data errors in the spreadsheet"""
     errors = []
     
-
     for col in df.columns:
         for idx, value in enumerate(df[col]):
             if pd.isna(value):
                 continue
             if isinstance(value, str):
-               
                 excel_errors = ['#DIV/0!', '#N/A', '#NAME?', '#NULL!', '#NUM!', '#REF!', '#VALUE!']
                 if any(error in str(value) for error in excel_errors):
                     errors.append(f"Excel error '{value}' found in column '{col}' at row {idx + 2}")
     
-
     numeric_cols = df.select_dtypes(include=[np.number]).columns
     for col in numeric_cols:
         missing_count = df[col].isna().sum()
@@ -65,18 +63,15 @@ def detect_data_errors(df):
     
     return errors
 
-
 def analyze_time_series_trends(df):
     """Analyze trends in time-series data"""
     trends = []
     
-
     date_columns = []
     for col in df.columns:
         if df[col].dtype == 'datetime64[ns]' or 'date' in col.lower() or 'time' in col.lower():
             date_columns.append(col)
     
-
     if not date_columns and len(df.columns) > 0:
         first_col = df.columns[0]
         try:
@@ -87,29 +82,24 @@ def analyze_time_series_trends(df):
     
     if date_columns:
         date_col = date_columns[0]
-     
         if df[date_col].dtype != 'datetime64[ns]':
             try:
                 df[date_col] = pd.to_datetime(df[date_col])
             except:
                 return trends
         
-     
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         for col in numeric_cols:
-            if len(df[col].dropna()) >= 3:  
-                # Sort by date
+            if len(df[col].dropna()) >= 3:
                 df_sorted = df.sort_values(date_col)
                 values = df_sorted[col].dropna()
                 
                 if len(values) >= 3:
-                 
                     first_val = values.iloc[0]
                     last_val = values.iloc[-1]
                     change = last_val - first_val
                     change_percent = (change / first_val * 100) if first_val != 0 else 0
                     
-                 
                     max_val = values.max()
                     min_val = values.min()
                     
@@ -128,33 +118,9 @@ def analyze_time_series_trends(df):
     
     return trends
 
-
-def extract_formulas_from_excel(file_path, sheet_name=None):
-    """Extract formulas from Excel file using openpyxl"""
-    formulas = []
-    try:
-        wb = openpyxl.load_workbook(file_path, data_only=False)
-        ws = wb.active if sheet_name is None else wb[sheet_name]
-        
-        for row in ws.iter_rows():
-            for cell in row:
-                if cell.data_type == 'f' and cell.value: 
-                    formulas.append({
-                        'cell': f"{cell.column_letter}{cell.row}",
-                        'formula': cell.value
-                    })
-        
-        wb.close()
-    except Exception as e:
-        print(f"Error extracting formulas: {e}")
-    
-    return formulas
-
-
 def create_enhanced_data_summary(df, file_info, file_obj=None):
     """Create an enhanced summary with error detection and trend analysis"""
     
-
     summary = f"""
 EXCEL DATA ANALYSIS REPORT
 ==========================
@@ -164,11 +130,10 @@ Sheets: {', '.join(file_info['sheet_names'])}
 Columns: {', '.join(file_info['column_names'])}
 """
     
-
     errors = detect_data_errors(df)
     if errors:
         summary += f"\n⚠️  DATA QUALITY ISSUES DETECTED:\n"
-        for error in errors[:5]: 
+        for error in errors[:5]:
             summary += f"- {error}\n"
         if len(errors) > 5:
             summary += f"... and {len(errors) - 5} more issues\n"
@@ -183,9 +148,10 @@ Columns: {', '.join(file_info['column_names'])}
             summary += f"({trend['start_value']:.2f} → {trend['end_value']:.2f}, "
             summary += f"{trend['change_percent']:+.1f}%)\n"
             summary += f"  Peak: {trend['peak']:.2f}, Minimum: {trend['minimum']:.2f}\n"
+            
     if file_info.get('numeric_stats'):
         summary += f"\n📊 NUMERIC SUMMARY:\n"
-        for col, stats in list(file_info['numeric_stats'].items())[:5]:  # Limit columns
+        for col, stats in list(file_info['numeric_stats'].items())[:5]:
             summary += f"- {col}: Sum={stats['sum']:,.2f}, Avg={stats['mean']:.2f}, Count={stats['count']}\n"
     
     if len(df) <= 10:
@@ -195,9 +161,8 @@ Columns: {', '.join(file_info['column_names'])}
     
     return summary, errors, trends
 
-
-def ask_openai_with_enhanced_context(data_summary, user_question, errors, trends, model="gpt-3.5-turbo"):
-    """Enhanced AI query with comprehensive financial analysis context"""
+def ask_openai_with_enhanced_context(data_summary, user_question, errors, trends, qa_history=None, model="gpt-3.5-turbo"):
+    """Enhanced AI query with comprehensive financial analysis context and conversation history"""
     try:
         context_additions = []
         
@@ -220,6 +185,13 @@ def ask_openai_with_enhanced_context(data_summary, user_question, errors, trends
         
         enhanced_context = "\n".join(context_additions) if context_additions else ""
         
+
+        history_context = ""
+        if qa_history:
+            history_context = "\nPREVIOUS CONVERSATION:\n"
+            for i, qa in enumerate(qa_history[-3:], 1): 
+                history_context += f"Q{i}: {qa['question']}\nA{i}: {qa['answer'][:200]}...\n\n"
+        
         prompt = f"""You are an expert financial data analyst. Analyze the Excel data below and answer the user's question with professional insights.
 
 {data_summary}
@@ -227,45 +199,70 @@ def ask_openai_with_enhanced_context(data_summary, user_question, errors, trends
 ANALYSIS GUIDANCE:
 {enhanced_context}
 
-User's Question: {user_question}
+{history_context}
+
+User's Current Question: {user_question}
 
 Instructions:
 1. Provide a clear, specific answer based on the data above
-2. If data quality issues exist, mention how they might affect your analysis
-3. Use actual numbers from the data when possible
-4. If the question cannot be fully answered, explain what information is available
-5. For trend questions, reference the trend analysis
-6. For financial data, consider business implications
-7. Keep your response professional but accessible
+2. Consider the conversation history when relevant
+3. If data quality issues exist, mention how they might affect your analysis
+4. Use actual numbers from the data when possible
+5. If the question cannot be fully answered, explain what information is available
+6. For trend questions, reference the trend analysis
+7. For financial data, consider business implications
+8. Keep your response professional but accessible
 
 Answer:"""
 
         chat_completion = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": "You are a professional financial data analyst with expertise in Excel analysis, trend identification, and business intelligence."},
+                {"role": "system", "content": "You are a professional financial data analyst with expertise in Excel analysis, trend identification, and business intelligence. You maintain context from previous questions about the same dataset."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.3
+            temperature=0.3,
             max_tokens=600,
         )
         return chat_completion.choices[0].message.content.strip()
     except Exception as e:
         return f"Error analyzing data: {str(e)}. Please check your OpenAI API configuration."
 
+def store_file_data(df, file_info, errors, trends, data_summary):
+    """Store file data in memory with unique ID"""
+    file_id = str(uuid.uuid4())
+    file_store[file_id] = {
+        'dataframe': df,
+        'file_info': file_info,
+        'errors': errors,
+        'trends': trends,
+        'data_summary': data_summary,
+        'qa_history': [],
+        'timestamp': datetime.now()
+    }
+    return file_id
+
+def get_file_data(file_id):
+    """Retrieve stored file data"""
+    return file_store.get(file_id)
+
+def add_qa_to_history(file_id, question, answer):
+    """Add Q&A to conversation history"""
+    if file_id in file_store:
+        file_store[file_id]['qa_history'].append({
+            'question': question,
+            'answer': answer,
+            'timestamp': datetime.now()
+        })
 
 @app.route('/')
 def index():
     """Render the main page"""
     return render_template('index.html')
 
-
-@app.route('/upload', methods=['GET', 'POST'])
+@app.route('/upload', methods=['POST'])
 def upload_file():
-    """Handle file upload and enhanced question processing"""
-    if request.method == 'GET':
-        return redirect(url_for('index'))
-    
+    """Handle file upload and first question"""
     if 'file' not in request.files:
         flash('No file selected')
         return redirect(url_for('index'))
@@ -319,35 +316,109 @@ def upload_file():
         
         data_summary, errors, trends = create_enhanced_data_summary(df, file_info, file)
         
+
+        file_id = store_file_data(df, file_info, errors, trends, data_summary)
+        
         print("Sending enhanced request to OpenAI...")
         ai_answer = ask_openai_with_enhanced_context(data_summary, query, errors, trends)
         print(f"AI Response received: {len(ai_answer)} characters")
+        
+
+        add_qa_to_history(file_id, query, ai_answer)
         
         display_df = df.head(100) if len(df) > 100 else df
         file_data = display_df.to_html(classes='table table-bordered table-striped', 
                                       index=False, 
                                       table_id='data-table')
         
-        return render_template('index.html', 
+        return render_template('chat.html', 
                              file_data=file_data, 
-                             query=query, 
                              file_info=file_info,
-                             ai_answer=ai_answer,
                              errors=errors,
                              trends=trends,
-                             success=True)
+                             file_id=file_id,
+                             qa_history=file_store[file_id]['qa_history'])
     
     except Exception as e:
         print(f"Error processing file: {str(e)}")
         flash(f'Error processing file: {str(e)}')
         return redirect(url_for('index'))
 
+@app.route('/ask_question', methods=['POST'])
+def ask_question():
+    """Handle follow-up questions about already uploaded file"""
+    file_id = request.form.get('file_id')
+    question = request.form.get('question', '').strip()
+    
+    if not file_id or not question:
+        return jsonify({'error': 'Missing file ID or question'}), 400
+    
+    file_data = get_file_data(file_id)
+    if not file_data:
+        return jsonify({'error': 'File data not found. Please upload the file again.'}), 404
+    
+    try:
+
+        ai_answer = ask_openai_with_enhanced_context(
+            file_data['data_summary'], 
+            question, 
+            file_data['errors'], 
+            file_data['trends'],
+            file_data['qa_history']
+        )
+        
+        add_qa_to_history(file_id, question, ai_answer)
+        
+        return jsonify({
+            'answer': ai_answer,
+            'question': question,
+            'timestamp': datetime.now().strftime('%H:%M:%S')
+        })
+    
+    except Exception as e:
+        print(f"Error processing question: {str(e)}")
+        return jsonify({'error': f'Error processing question: {str(e)}'}), 500
+
+@app.route('/chat/<file_id>')
+def chat_interface(file_id):
+    """Display chat interface for specific file"""
+    file_data = get_file_data(file_id)
+    if not file_data:
+        flash('File data not found. Please upload the file again.')
+        return redirect(url_for('index'))
+    
+    df = file_data['dataframe']
+    display_df = df.head(100) if len(df) > 100 else df
+    file_data_html = display_df.to_html(classes='table table-bordered table-striped', 
+                                       index=False, 
+                                       table_id='data-table')
+    
+    return render_template('chat.html',
+                         file_data=file_data_html,
+                         file_info=file_data['file_info'],
+                         errors=file_data['errors'],
+                         trends=file_data['trends'],
+                         file_id=file_id,
+                         qa_history=file_data['qa_history'])
 
 @app.errorhandler(413)
 def too_large(e):
     """Handle file too large error"""
     flash("File is too large. Maximum size is 5GB.")
     return redirect(url_for('index'))
+
+
+@app.before_request
+def cleanup_old_files():
+    """Remove files older than 1 hour"""
+    current_time = datetime.now()
+    to_remove = []
+    for file_id, data in file_store.items():
+        if (current_time - data['timestamp']).seconds > 3600:
+            to_remove.append(file_id)
+    
+    for file_id in to_remove:
+        del file_store[file_id]
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
