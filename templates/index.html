@@ -117,7 +117,7 @@
 
   
         <div class="chat-header">
-            <h3>🤖 AI Assistant - Analyzing {{ file_info.filename }}</h3>
+            <h3>🤖 AI Assistant{% if file_info %} - {{ file_info.filename }}{% endif %}</h3>
             <p class="mb-0">Ask me anything about your data! I have context from our previous conversation.</p>
         </div>
 
@@ -133,7 +133,12 @@
             </div>
             <div class="status-card status-info">
                 <strong>Dimensions</strong><br>
-                📊 {{ file_info.rows:,d }} × {{ file_info.columns }}
+                {% if file_info %}
+                    📊 {{ "{:,}".format(file_info.rows) }} × {{ file_info.columns }}
+                {% else %}
+                    📊 No file uploaded
+                {% endif %}
+
             </div>
             <div class="status-card {% if trends %}status-info{% else %}status-good{% endif %}">
                 <strong>Trends</strong><br>
@@ -268,7 +273,12 @@
                     </div>
                     <div class="card-body">
                         <p><strong>Filename:</strong> {{ file_info.filename }}</p>
-                        <p><strong>Rows:</strong> {{ file_info.rows:,d }}</p>
+                        {% if file_info %}
+                            <p><strong>Rows:</strong> {{ "{:,}".format(file_info.rows) }}</p>
+                        {% else %}
+                            <p><strong>Rows:</strong> Not available</p>
+                        {% endif %}
+
                         <p><strong>Columns:</strong> {{ file_info.columns }}</p>
                         <p><strong>Sheets:</strong> {{ file_info.sheet_names | join(', ') }}</p>
                         
@@ -287,4 +297,5 @@
                     <div class="card mb-3">
                         <div class="card-header">
                             <h6>📊 Quick Stats</h6>
+                {% endif %}
                         
