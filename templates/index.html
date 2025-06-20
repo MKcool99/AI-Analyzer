@@ -4,244 +4,298 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Excel File Analyzer with AI</title>
+    <title>AI Assistant - {{ file_info.filename }}</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
     <style>
         .container {
-            max-width: 1200px;
-            margin-top: 2rem;
+            max-width: 1400px;
+            margin-top: 1rem;
         }
-        .file-info {
-            background-color: #f8f9fa;
+        .chat-container {
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
             border-radius: 0.5rem;
             padding: 1rem;
-            margin-bottom: 1rem;
+            background-color: #f8f9fa;
         }
-        .ai-answer {
+        .question-bubble {
+            background: #007bff;
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 1rem 1rem 0.25rem 1rem;
+            margin: 0.5rem 0 0.5rem auto;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+        .answer-bubble {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            border-radius: 0.5rem;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
-        .ai-answer h5 {
-            color: #ffffff;
-            margin-bottom: 1rem;
-        }
-        .ai-answer-content {
-            background: rgba(255, 255, 255, 0.1);
             padding: 1rem;
-            border-radius: 0.375rem;
-            backdrop-filter: blur(10px);
+            border-radius: 1rem 1rem 1rem 0.25rem;
+            margin: 0.5rem auto 0.5rem 0;
+            max-width: 85%;
+            word-wrap: break-word;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
-        #data-table {
-            font-size: 0.85rem;
-            max-height: 400px;
-            overflow-y: auto;
+        .timestamp {
+            font-size: 0.75rem;
+            color: #6c757d;
+            margin-top: 0.25rem;
         }
-        .alert {
+        .question-input-container {
+            position: sticky;
+            bottom: 0;
+            background: white;
+            padding: 1rem;
+            border-top: 1px solid #dee2e6;
             margin-top: 1rem;
+        }
+        .file-info {
+            background-color: #e9ecef;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+        .data-preview {
+            max-height: 400px;
+            overflow: auto;
         }
         .alert-sm {
             padding: 0.5rem;
             margin-bottom: 0.5rem;
             font-size: 0.875rem;
         }
-        .trend-badge {
-            font-size: 0.75rem;
+        .loading-spinner {
+            display: none;
+        }
+        .btn-back {
+            margin-bottom: 1rem;
+        }
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .status-indicators {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        .status-card {
+            flex: 1;
+            padding: 0.75rem;
+            border-radius: 0.5rem;
+            text-align: center;
+            font-size: 0.875rem;
+        }
+        .status-good {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .status-warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        .status-info {
+            background-color: #d1ecf1;
+            border: 1px solid #b8daff;
+            color: #0c5460;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="row">
-            <div class="col-md-12">
-                <h1 class="text-center mb-4">🤖 AI Excel Analyzer</h1>
-                <p class="text-center text-muted">Upload an Excel spreadsheet and get AI-powered insights!</p>
 
-                {% with messages = get_flashed_messages() %}
-                    {% if messages %}
-                        {% for message in messages %}
-                            <div class="alert alert-warning alert-dismissible fade show" role="alert">
-                                {{ message }}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                            </div>
-                        {% endfor %}
-                    {% endif %}
-                {% endwith %}
+        <a href="/" class="btn btn-outline-primary btn-back">
+            ← Upload New File
+        </a>
 
-                {% if success %}
-                    <div class="alert alert-success alert-dismissible fade show" role="alert">
-                        <strong>Analysis Complete!</strong> Your file "{{ file_info.filename }}" has been processed and analyzed by AI.
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                {% endif %}
+  
+        <div class="chat-header">
+            <h3>🤖 AI Assistant{% if file_info %} - {{ file_info.filename }}{% endif %}</h3>
+            <p class="mb-0">Ask me anything about your data! I have context from our previous conversation.</p>
+        </div>
 
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <form action="/upload" method="POST" enctype="multipart/form-data" id="uploadForm">
-                            <div class="mb-3">
-                                <label for="file" class="form-label">
-                                    Select an Excel file (.xlsx or .xls) - Maximum size: 5GB
-                                </label>
-                                <input type="file" 
-                                       class="form-control" 
-                                       name="file" 
-                                       id="file"
-                                       accept=".xlsx,.xls" 
-                                       required />
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="question" class="form-label">Ask a question about your data</label>
-                                <input type="text" 
-                                       class="form-control" 
-                                       name="question" 
-                                       id="question"
-                                       placeholder="e.g., What is the total revenue? Which month had the highest sales?" 
-                                       required />
-                            </div>
-                            
-                            <button type="submit" class="btn btn-primary" id="submitBtn">
-                                📊 Analyze with AI
-                            </button>
-                            
-                            <div class="loading mt-3" id="loadingMsg">
-                                <div class="spinner-border text-primary" role="status">
-                                    <span class="visually-hidden">Loading...</span>
-                                </div>
-                                <span class="ms-2">AI is analyzing your data...</span>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-     
-                {% if ai_answer %}
-                    <div class="ai-answer">
-                        <h5>🤖 AI Financial Analysis</h5>
-                        <div class="ai-answer-content">
-                            <strong>Your Question:</strong> {{ query }}
-                            <hr style="border-color: rgba(255,255,255,0.3);">
-                            <div style="white-space: pre-line;">{{ ai_answer }}</div>
-                        </div>
-                    </div>
+
+        <div class="status-indicators">
+            <div class="status-card {% if not errors %}status-good{% else %}status-warning{% endif %}">
+                <strong>Data Quality</strong><br>
+                {% if not errors %}
+                    ✅ No Issues
+                {% else %}
+                    ⚠️ {{ errors|length }} Issues
                 {% endif %}
-                
-              
-                {% if errors or trends %}
-                    <div class="row mb-4">
-                        {% if errors %}
-                            <div class="col-md-6">
-                                <div class="card border-warning">
-                                    <div class="card-header bg-warning text-dark">
-                                        <h6>⚠️ Data Quality Issues</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        {% for error in errors[:5] %}
-                                            <div class="alert alert-warning alert-sm mb-2">{{ error }}</div>
-                                        {% endfor %}
-                                        {% if errors|length > 5 %}
-                                            <small class="text-muted">... and {{ errors|length - 5 }} more issues</small>
-                                        {% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                        {% endif %}
-                        
-                        {% if trends %}
-                            <div class="col-md-6">
-                                <div class="card border-success">
-                                    <div class="card-header bg-success text-white">
-                                        <h6>📈 Trend Analysis</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        {% for trend in trends[:3] %}
-                                            <div class="mb-3">
-                                                <strong>{{ trend.column }}:</strong>
-                                                <span class="badge bg-{% if trend.direction == 'increasing' %}success{% elif trend.direction == 'decreasing' %}danger{% else %}secondary{% endif %}">
-                                                    {{ trend.direction.upper() }}
-                                                </span>
-                                                <br>
-                                                <small class="text-muted">
-                                                    {{ "{:,.2f}".format(trend.start_value) }} → {{ "{:,.2f}".format(trend.end_value) }} 
-                                                    ({{ "{:+.1f}".format(trend.change_percent) }}%)
-                                                </small>
-                                            </div>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                            </div>
-                        {% endif %}
-                    </div>
-                {% endif %}
-                
-       
+            </div>
+            <div class="status-card status-info">
+                <strong>Dimensions</strong><br>
                 {% if file_info %}
-                    <div class="file-info">
-                        <h5>📋 File Information</h5>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <p><strong>Filename:</strong> {{ file_info.filename }}</p>
-                                <p><strong>Rows:</strong> {{ file_info.rows:,d }}</p>
-                                <p><strong>Columns:</strong> {{ file_info.columns }}</p>
-                            </div>
-                            <div class="col-md-6">
-                                <p><strong>Sheet Names:</strong> {{ file_info.sheet_names | join(', ') }}</p>
-                                <p><strong>Column Names:</strong> {{ file_info.column_names | join(', ') }}</p>
-                            </div>
-                        </div>
-                        
-                        {% if file_info.numeric_stats %}
-                            <h6>📊 Numeric Column Statistics</h6>
-                            <div class="row">
-                                {% for col, stats in file_info.numeric_stats.items() %}
-                                    <div class="col-md-4 mb-3">
-                                        <div class="card">
-                                            <div class="card-body">
-                                                <h6 class="card-title">{{ col }}</h6>
-                                                <p class="card-text">
-                                                    <strong>Sum:</strong> {{ "{:,.2f}".format(stats.sum) }}<br>
-                                                    <strong>Average:</strong> {{ "{:,.2f}".format(stats.mean) }}<br>
-                                                    <strong>Count:</strong> {{ stats.count }}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                {% endfor %}
-                            </div>
-                        {% endif %}
-                    </div>
+                    📊 {{ "{:,}".format(file_info.rows) }} × {{ file_info.columns }}
+                {% else %}
+                    📊 No file uploaded
                 {% endif %}
-                
-    
-                {% if file_data %}
-                    <div class="card">
-                        <div class="card-header">
-                            <h5>📈 Data Preview</h5>
-                            <small class="text-muted">
-                                {% if file_info.rows > 100 %}
-                                    Showing first 100 rows of {{ file_info.rows:,d }} total rows
-                                {% else %}
-                                    Showing all {{ file_info.rows }} rows
-                                {% endif %}
-                            </small>
-                        </div>
-                        <div class="card-body" style="overflow-x: auto;">
-                            {{ file_data | safe }}
-                        </div>
-                    </div>
+
+            </div>
+            <div class="status-card {% if trends %}status-info{% else %}status-good{% endif %}">
+                <strong>Trends</strong><br>
+                {% if trends %}
+                    📈 {{ trends|length }} Detected
+                {% else %}
+                    📋 No Trends
                 {% endif %}
             </div>
         </div>
-    </div>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
-    <script>
-        document.getElementById('uploadForm').addEventListener('submit', function() {
-            document.getElementById('submitBtn').disabled = true;
-            document.getElementById('loadingMsg').style.display = 'block';
-        });
-    </script>
-</body>
-</html>
+
+        <div class="row">
+
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5>💬 Conversation History</h5>
+                        <small class="text-muted">{{ qa_history|length }} questions asked</small>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="chat-container" id="chatContainer">
+                            {% if qa_history %}
+                                {% for qa in qa_history %}
+                                    <div class="d-flex justify-content-end">
+                                        <div class="question-bubble">
+                                            <strong>You:</strong> {{ qa.question }}
+                                            <div class="timestamp">{{ qa.timestamp.strftime('%H:%M:%S') if qa.timestamp else 'Just now' }}</div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex justify-content-start">
+                                        <div class="answer-bubble">
+                                            <strong>🤖 AI Assistant:</strong><br>
+                                            <div style="white-space: pre-line; margin-top: 0.5rem;">{{ qa.answer }}</div>
+                                            <div class="timestamp">{{ qa.timestamp.strftime('%H:%M:%S') if qa.timestamp else 'Just now' }}</div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="text-center text-muted py-4">
+                                    <h5>Welcome! Your file has been analyzed.</h5>
+                                    <p>Ask me anything about your data below.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="question-input-container">
+                    <form id="questionForm">
+                        <div class="input-group">
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="questionInput" 
+                                   placeholder="Ask another question about your data..." 
+                                   required>
+                            <button class="btn btn-primary" type="submit" id="askButton">
+                                Ask AI
+                            </button>
+                        </div>
+                        <input type="hidden" id="fileId" value="{{ file_id }}">
+                    </form>
+                    
+                    <div class="loading-spinner mt-2" id="loadingSpinner">
+                        <div class="d-flex align-items-center">
+                            <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <span>AI is thinking...</span>
+                        </div>
+                    </div>
+                    
+         
+                    <div class="mt-2">
+                        <small class="text-muted">Quick suggestions:</small><br>
+                        <button class="btn btn-outline-secondary btn-sm me-1 mb-1 quick-question" data-question="What are the key insights from this data?">Key Insights</button>
+                        <button class="btn btn-outline-secondary btn-sm me-1 mb-1 quick-question" data-question="What trends do you see in the data?">Trends</button>
+                        <button class="btn btn-outline-secondary btn-sm me-1 mb-1 quick-question" data-question="Are there any data quality issues I should know about?">Data Quality</button>
+                        <button class="btn btn-outline-secondary btn-sm me-1 mb-1 quick-question" data-question="What's the summary of key statistics?">Statistics</button>
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="col-lg-4">
+                {% if errors %}
+                    <div class="card border-warning mb-3">
+                        <div class="card-header bg-warning text-dark">
+                            <h6>⚠️ Data Quality Issues ({{ errors|length }})</h6>
+                        </div>
+                        <div class="card-body">
+                            {% for error in errors[:3] %}
+                                <div class="alert alert-warning alert-sm mb-2">{{ error }}</div>
+                            {% endfor %}
+                            {% if errors|length > 3 %}
+                                <details>
+                                    <summary class="text-muted">Show {{ errors|length - 3 }} more issues...</summary>
+                                    {% for error in errors[3:] %}
+                                        <div class="alert alert-warning alert-sm mb-2 mt-2">{{ error }}</div>
+                                    {% endfor %}
+                                </details>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endif %}
+
+                {% if trends %}
+                    <div class="card border-success mb-3">
+                        <div class="card-header bg-success text-white">
+                            <h6>📈 Trend Analysis ({{ trends|length }})</h6>
+                        </div>
+                        <div class="card-body">
+                            {% for trend in trends[:3] %}
+                                <div class="mb-3">
+                                    <strong>{{ trend.column }}:</strong>
+                                    <span class="badge bg-{% if trend.direction == 'increasing' %}success{% elif trend.direction == 'decreasing' %}danger{% else %}secondary{% endif %}">
+                                        {{ trend.direction.upper() }}
+                                    </span>
+                                    <br>
+                                    <small class="text-muted">
+                                        {{ "{:,.2f}".format(trend.start_value) }} → {{ "{:,.2f}".format(trend.end_value) }} 
+                                        ({{ "{:+.1f}".format(trend.change_percent) }}%)
+                                    </small>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h6>📋 File Information</h6>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Filename:</strong> {{ file_info.filename }}</p>
+                        {% if file_info %}
+                            <p><strong>Rows:</strong> {{ "{:,}".format(file_info.rows) }}</p>
+                        {% else %}
+                            <p><strong>Rows:</strong> Not available</p>
+                        {% endif %}
+
+                        <p><strong>Columns:</strong> {{ file_info.columns }}</p>
+                        <p><strong>Sheets:</strong> {{ file_info.sheet_names | join(', ') }}</p>
+                        
+                        <details class="mt-2">
+                            <summary>Column Names</summary>
+                            <div class="mt-2">
+                                {% for col in file_info.column_names %}
+                                    <span class="badge bg-secondary me-1 mb-1">{{ col }}</span>
+                                {% endfor %}
+                            </div>
+                        </details>
+                    </div>
+                </div>
+
+                {% if file_info.numeric_stats %}
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h6>📊 Quick Stats</h6>
+                {% endif %}
+                        
