@@ -2,3 +2,5 @@ flask
 pandas
 openpyxl
 xlrd
+openai
+python-dotenv
