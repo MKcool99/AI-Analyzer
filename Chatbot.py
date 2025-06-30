@@ -1,3 +1,5 @@
+"""Small helper module for experimenting with the OpenAI API via the CLI."""
+
 from openai import OpenAI
 from dotenv import load_dotenv
 import os
@@ -7,6 +9,7 @@ load_dotenv()
 client = OpenAI()
 
 def ask_openai(prompt, model="gpt-3.5-turbo", temperature=0.7, max_tokens=300):
+    """Send a single prompt to OpenAI and return the response text."""
     try:
         chat_completion = client.chat.completions.create(
             model=model,
