@@ -1,3 +1,5 @@
+"""Flask web application for querying Excel spreadsheets with GPT."""
+
 from flask import Flask, render_template, request, flash, redirect, url_for, session, jsonify
 import os
 import pandas as pd
@@ -11,13 +13,12 @@ import re
 import uuid
 import pickle
 import tempfile
-
 load_dotenv()
 
-app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024 * 1024 
+app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024 * 1024
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 
+# In-memory store for uploaded file information and conversation history
 file_store = {}
 
 client = OpenAI()
@@ -161,8 +162,8 @@ Columns: {', '.join(file_info['column_names'])}
     
     return summary, errors, trends
 
-def ask_openai_with_enhanced_context(data_summary, user_question, errors, trends, qa_history=None, model="gpt-3.5-turbo"):
-    """Enhanced AI query with comprehensive financial analysis context and conversation history"""
+def ask_openai_with_enhanced_context(data_summary, user_question, errors, trends, qa_history=None, model="gpt-3.5-turbo"):␊
+    """Send the user's question and data summary to OpenAI with extra context."""
     try:
         context_additions = []
         
@@ -228,8 +229,8 @@ Answer:"""
     except Exception as e:
         return f"Error analyzing data: {str(e)}. Please check your OpenAI API configuration."
 
-def store_file_data(df, file_info, errors, trends, data_summary):
-    """Store file data in memory with unique ID"""
+def store_file_data(df, file_info, errors, trends, data_summary):␊
+    """Store dataframe and metadata in memory under a unique identifier."""
     file_id = str(uuid.uuid4())
     file_store[file_id] = {
         'dataframe': df,
@@ -261,8 +262,8 @@ def index():
     return render_template('index.html')
 
 @app.route('/upload', methods=['POST'])
-def upload_file():
-    """Handle file upload and first question"""
+def upload_file():␊
+    """Process uploaded Excel file and send first question to OpenAI."""
     if 'file' not in request.files:
         flash('No file selected')
         return redirect(url_for('index'))
@@ -345,8 +346,8 @@ def upload_file():
         return redirect(url_for('index'))
 
 @app.route('/ask_question', methods=['POST'])
-def ask_question():
-    """Handle follow-up questions about already uploaded file"""
+def ask_question():␊
+    """Answer additional user questions using stored file data."""
     file_id = request.form.get('file_id')
     question = request.form.get('question', '').strip()
     
