@@ -13,9 +13,14 @@
     </style>
 </head>
 <body>
+<nav class="navbar navbar-dark bg-dark">
+    <div class="container-fluid">
+        <span class="navbar-brand mb-0 h1">Conversation</span>
+    </div>
+</nav>
 <div class="container py-3">
     <h3 class="mb-3">{{ file_info.filename }}</h3>
-    <div class="mb-4">
+    <div class="mb-4" role="region" aria-label="Spreadsheet preview">
         {{ file_data | safe }}
     </div>
     <div class="row">
@@ -27,8 +32,9 @@
                 {% endfor %}
             </div>
             <form id="questionForm">
+                <label for="questionInput" class="form-label visually-hidden">Your Question</label>
                 <div class="input-group mb-3">
-                    <input type="text" class="form-control" id="questionInput" placeholder="Ask another question..." required>
+                    <input type="text" class="form-control" id="questionInput" placeholder="Ask another question..." aria-label="Question" required>
                     <button class="btn btn-primary" type="submit">Ask</button>
                 </div>
                 <input type="hidden" id="fileId" value="{{ file_id }}">
