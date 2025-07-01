@@ -187,23 +187,7 @@
             </div>
 
             <div class="col-lg-4">
-                <div class="card mb-3">
-                    <div class="card-header">📋 File Information</div>
-                    <div class="card-body">
-                        <p><strong>Filename:</strong> {{ file_info.filename }}</p>
-                        <p><strong>Rows:</strong> {{ "{:,}".format(file_info.rows) }}</p>
-                        <p><strong>Columns:</strong> {{ file_info.columns }}</p>
-                        <p><strong>Sheets:</strong> {{ file_info.sheet_names | join(', ') }}</p>
-                        <details>
-                            <summary>Column Names</summary>
-                            <div class="mt-2">
-                                {% for col in file_info.column_names %}
-                                <span class="badge bg-secondary me-1">{{ col }}</span>
-                                {% endfor %}
-                            </div>
-                        </details>
-                    </div>
-                </div>
+                
 
                 {% if errors %}
                 <div class="card border-warning mb-3">
@@ -243,6 +227,24 @@
                     </div>
                 </div>
                 {% endif %}
+
+                <div class="card mb-3">
+                    <div class="card-header">📋 File Information</div>
+                    <div class="card-body">
+                        <p><strong>Filename:</strong> {{ file_info.filename }}</p>
+                        <p><strong>Rows:</strong> {{ "{:,}".format(file_info.rows) }}</p>
+                        <p><strong>Columns:</strong> {{ file_info.columns }}</p>
+                        <p><strong>Sheets:</strong> {{ file_info.sheet_names | join(', ') }}</p>
+                        <details>
+                            <summary>Column Names</summary>
+                            <div class="mt-2">
+                                {% for col in file_info.column_names %}
+                                <span class="badge bg-secondary me-1">{{ col }}</span>
+                                {% endfor %}
+                            </div>
+                        </details>
+                    </div>
+                </div>
             </div>
         </div>
         {% endif %}

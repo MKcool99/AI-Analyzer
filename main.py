@@ -1,3 +1,7 @@
+# to run the code first install requirements.txt
+# then enter python main.py
+# then go to the link the terminal gives you
+
 from flask import Flask, render_template, request, flash, redirect, url_for, session, jsonify
 import os
 import pandas as pd
@@ -21,7 +25,8 @@ app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024 * 1024  # 5 GB max upload
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 
 file_store = {}
-client = OpenAI()
+client = OpenAI(api_key="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")
+#im aware it's bad practice to hardcode the API key, but this is just a demo.
 
 ALLOWED_EXTENSIONS = {'xls', 'xlsx'}
 
@@ -217,3 +222,22 @@ def ask_question():
         return jsonify({'error': 'Missing file ID or question'}), 400
 
     file_data = get_file_data(file_id)
+
+def create_enhanced_data_summary(df, file_info, file):
+    """Create a summary of the data, detect errors, and find trends."""
+    # Basic summary
+    summary = f"Spreadsheet '{file_info['filename']}' with {file_info['num_rows']} rows and {file_info['num_columns']} columns.\n"
+    summary += f"Columns: {', '.join(file_info['column_names'])}\n"
+    # Detect errors
+    errors = detect_data_errors(df)
+    # Find trends (simple example: check if numeric columns are increasing or decreasing)
+    trends = []
+    for col in df.select_dtypes(include=[np.number]).columns:
+        col_data = df[col].dropna()
+        if len(col_data) > 1:
+            direction = "increasing" if col_data.iloc[-1] > col_data.iloc[0] else "decreasing"
+            trends.append({'column': col, 'direction': direction})
+    return summary, errors, trends
+
+if __name__ == "__main__":
+    app.run(debug=True)

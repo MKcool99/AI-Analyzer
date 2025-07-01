@@ -8,7 +8,7 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <style>
         .chat-box { max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6; padding: 1rem; margin-bottom: 1rem; }
-        .question { background:#007bff; color:#fff; padding:.5rem .75rem; border-radius:1rem; margin-bottom:.5rem; }
+        .question { background:#008000; color:#fff; padding:.5rem .75rem; border-radius:1rem; margin-bottom:.5rem; }
         .answer { background:#f1f3f5; padding:.5rem .75rem; border-radius:1rem; margin-bottom:.5rem; }
     </style>
 </head>
@@ -20,9 +20,6 @@
 </nav>
 <div class="container py-3">
     <h3 class="mb-3">{{ file_info.filename }}</h3>
-    <div class="mb-4" role="region" aria-label="Spreadsheet preview">
-        {{ file_data | safe }}
-    </div>
     <div class="row">
         <div class="col-md-8">
             <div class="chat-box" id="chatBox">
@@ -59,6 +56,9 @@
             </div>
             {% endif %}
         </div>
+    </div>
+    <div class="mb-4" role="region" aria-label="Spreadsheet preview">
+        {{ file_data | safe }}
     </div>
 </div>
 <script>
