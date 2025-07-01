@@ -25,7 +25,7 @@ app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024 * 1024  # 5 GB max upload
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 
 file_store = {}
-client = OpenAI(api_key="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")
+client = OpenAI(api_key=os.get_env('API_KEY'))
 #im aware it's bad practice to hardcode the API key, but this is just a demo.
 
 ALLOWED_EXTENSIONS = {'xls', 'xlsx'}
