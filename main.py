@@ -51,27 +51,26 @@ def detect_data_errors(df):
             errors.append(f"Column '{col}' has {missing_count} missing values")
     return errors
 
-# Global variable to store dataframe for lookups
 stored_dataframe = None
 
 def get_specific_data_for_question(question, df):
     """Extract only relevant data based on the question to minimize tokens."""
     question_lower = question.lower()
 
-    # For datasets already included in full (≤30 rows), don't duplicate
+  
     if len(df) <= 30:
         return ""
 
-    # For specific value questions, try to find exact matches
+ 
     if any(word in question_lower for word in ['degree', 'value', 'cell', 'row']):
         import re
         numbers = re.findall(r'\d+', question)
         if numbers:
             try:
-                # Look for rows that might contain these values
-                for num in numbers[:3]:  # Check first 3 numbers found
+
+                for num in numbers[:3]:
                     val = int(num)
-                    # Check if this value appears in any column
+
                     for col in df.columns:
                         matches = df[df[col] == val]
                         if not matches.empty:
@@ -79,21 +78,20 @@ def get_specific_data_for_question(question, df):
             except:
                 pass
 
-    # For sum questions, return only the answer
     if any(word in question_lower for word in ['sum', 'total']):
-        return ""  # Sums already in main summary
+        return ""  
 
     return ""
 
 def ask_openai_with_enhanced_context(data_summary, user_question, errors, trends, qa_history=None, model="gpt-3.5-turbo"):
     """Send the user's question and data summary to OpenAI with extra context."""
     try:
-        # Get specific data for the question to minimize tokens
+
         specific_data = ""
         if stored_dataframe is not None:
             specific_data = get_specific_data_for_question(user_question, stored_dataframe)
 
-        # Ultra-minimal prompt
+
         prompt = f"{data_summary}{specific_data}Q: {user_question}\nA:"
 
         chat_completion = client.chat.completions.create(
@@ -233,7 +231,7 @@ def ask_question():
         return jsonify({'error': 'File data not found. Please upload your file again.'}), 404
 
     try:
-        # Set the global dataframe for context
+
         global stored_dataframe
         stored_dataframe = file_data['dataframe']
         
@@ -245,7 +243,7 @@ def ask_question():
             file_data['trends']
         )
         
-        # Add to conversation history
+
         add_qa_to_history(file_id, question, ai_answer)
         
         return jsonify({
@@ -258,23 +256,23 @@ def ask_question():
 
 def create_enhanced_data_summary(df, file_info, file):
     """Create a minimal data summary to reduce token usage."""
-    # Store full dataframe for specific lookups
+
     global stored_dataframe
     stored_dataframe = df
 
-    # Minimal summary
+
     summary = f"Data: {file_info['num_rows']} rows, {file_info['num_columns']} columns\n"
     summary += f"Columns: {', '.join(file_info['column_names'])}\n"
 
-    # For small datasets (≤30 rows), include all data for accuracy
+
     if len(df) <= 30:
         summary += f"Complete data:\n{df.to_string(index=True)}\n"
     else:
-        # For larger datasets, include strategic sample
+
         summary += f"Sample data (first 5):\n{df.head(5).to_string(index=True)}\n"
         summary += f"Sample data (last 5):\n{df.tail(5).to_string(index=True)}\n"
 
-    # Minimal stats - only sums for numeric columns
+
     numeric_cols = df.select_dtypes(include=[np.number]).columns
     if len(numeric_cols) > 0:
         sums = {col: df[col].sum() for col in numeric_cols}
