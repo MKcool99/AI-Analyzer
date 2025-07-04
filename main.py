@@ -25,8 +25,7 @@ app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024 * 1024  # 5 GB max upload
 app.config['SECRET_KEY'] = 'your-secret-key-here'
 
 file_store = {}
-client = OpenAI(api_key="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")
-#im aware it's bad practice to hardcode the API key, but this is just a demo.
+client = OpenAI()
 
 ALLOWED_EXTENSIONS = {'xls', 'xlsx'}
 
@@ -52,52 +51,59 @@ def detect_data_errors(df):
             errors.append(f"Column '{col}' has {missing_count} missing values")
     return errors
 
+# Global variable to store dataframe for lookups
+stored_dataframe = None
+
+def get_specific_data_for_question(question, df):
+    """Extract only relevant data based on the question to minimize tokens."""
+    question_lower = question.lower()
+
+    # For datasets already included in full (≤30 rows), don't duplicate
+    if len(df) <= 30:
+        return ""
+
+    # For specific value questions, try to find exact matches
+    if any(word in question_lower for word in ['degree', 'value', 'cell', 'row']):
+        import re
+        numbers = re.findall(r'\d+', question)
+        if numbers:
+            try:
+                # Look for rows that might contain these values
+                for num in numbers[:3]:  # Check first 3 numbers found
+                    val = int(num)
+                    # Check if this value appears in any column
+                    for col in df.columns:
+                        matches = df[df[col] == val]
+                        if not matches.empty:
+                            return f"Rows with {col}={val}:\n{matches.to_string(index=True)}\n"
+            except:
+                pass
+
+    # For sum questions, return only the answer
+    if any(word in question_lower for word in ['sum', 'total']):
+        return ""  # Sums already in main summary
+
+    return ""
+
 def ask_openai_with_enhanced_context(data_summary, user_question, errors, trends, qa_history=None, model="gpt-3.5-turbo"):
     """Send the user's question and data summary to OpenAI with extra context."""
     try:
-        context_additions = []
-        if errors:
-            context_additions.append(f"IMPORTANT: This spreadsheet contains {len(errors)} data quality issues that may affect analysis accuracy.")
-        if trends:
-            trend_summary = "Key trends identified: " + ", ".join([f"{t['column']} is {t['direction']}" for t in trends[:3]])
-            context_additions.append(trend_summary)
-        question_lower = user_question.lower()
-        if any(word in question_lower for word in ['trend', 'growth', 'increase', 'decrease', 'change']):
-            context_additions.append("The user is asking about trends - focus on the trend analysis data provided above.")
-        if any(word in question_lower for word in ['error', 'problem', 'issue', 'wrong']):
-            context_additions.append("The user is asking about data quality - reference the data quality issues section above.")
-        if any(word in question_lower for word in ['total', 'sum', 'average', 'mean', 'max', 'min']):
-            context_additions.append("The user wants statistical calculations - use the numeric summary data provided.")
-        enhanced_context = "\n".join(context_additions) if context_additions else ""
-        history_context = ""
-        if qa_history:
-            for qa in qa_history[-3:]:
-                history_context += f"Q: {qa['question']}\nA: {qa['answer']}\n"
-        prompt = f"""{data_summary}
-{enhanced_context}
-{history_context}
-User's Current Question: {user_question}
+        # Get specific data for the question to minimize tokens
+        specific_data = ""
+        if stored_dataframe is not None:
+            specific_data = get_specific_data_for_question(user_question, stored_dataframe)
 
-Instructions:
-1. Provide a clear, specific answer based on the data above
-2. Consider the conversation history when relevant
-3. If data quality issues exist, mention how they might affect your analysis
-4. Use actual numbers from the data when possible
-5. If the question cannot be fully answered, explain what information is available
-6. For trend questions, reference the trend analysis
-7. For financial data, consider business implications
-8. Keep your response professional but accessible
-
-Answer:"""
+        # Ultra-minimal prompt
+        prompt = f"{data_summary}{specific_data}Q: {user_question}\nA:"
 
         chat_completion = client.chat.completions.create(
             model=model,
             messages=[
-                {"role": "system", "content": "You are a professional financial data analyst with expertise in Excel analysis, trend identification, and business intelligence. You maintain context from previous questions about the same dataset."},
+                {"role": "system", "content": "Answer directly using provided data. One sentence maximum."},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.3,
-            max_tokens=600,
+            temperature=0,
+            max_tokens=50,
         )
         return chat_completion.choices[0].message.content.strip()
     except Exception as e:
@@ -139,22 +145,22 @@ def index():
 def upload_file():
     """Process uploaded Excel file and send first question to OpenAI."""
     if 'file' not in request.files:
-        flash('Please choose an Excel file to upload.')
+        flash('📄 Please select an Excel file to upload before proceeding.')
         return redirect(url_for('index'))
 
     file = request.files['file']
     query = request.form.get('question', '').strip()
 
     if file.filename == '':
-        flash('Please choose an Excel file to upload.')
+        flash('📄 No file selected. Please choose an Excel file (.xlsx or .xls) from your computer.')
         return redirect(url_for('index'))
 
     if not query:
-        flash('Enter a question about your spreadsheet so the AI knows what to analyze.')
+        flash('❓ Please enter a question about your data so our AI knows what to analyze. For example: "What are the total sales?" or "Show me trends in the data."')
         return redirect(url_for('index'))
 
     if not allowed_file(file.filename):
-        flash('Unsupported file format. Upload a .xls or .xlsx spreadsheet.')
+        flash('❌ File format not supported. Please upload an Excel file with .xlsx or .xls extension. Other formats like .csv or .txt are not currently supported.')
         return redirect(url_for('index'))
 
     try:
@@ -222,22 +228,62 @@ def ask_question():
         return jsonify({'error': 'Missing file ID or question'}), 400
 
     file_data = get_file_data(file_id)
+    
+    if not file_data:
+        return jsonify({'error': 'File data not found. Please upload your file again.'}), 404
+
+    try:
+        # Set the global dataframe for context
+        global stored_dataframe
+        stored_dataframe = file_data['dataframe']
+        
+        # Get AI response
+        ai_answer = ask_openai_with_enhanced_context(
+            file_data['data_summary'], 
+            question, 
+            file_data['errors'], 
+            file_data['trends']
+        )
+        
+        # Add to conversation history
+        add_qa_to_history(file_id, question, ai_answer)
+        
+        return jsonify({
+            'question': question,
+            'answer': ai_answer,
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({'error': f'Error processing question: {str(e)}'}), 500
 
 def create_enhanced_data_summary(df, file_info, file):
-    """Create a summary of the data, detect errors, and find trends."""
-    # Basic summary
-    summary = f"Spreadsheet '{file_info['filename']}' with {file_info['num_rows']} rows and {file_info['num_columns']} columns.\n"
+    """Create a minimal data summary to reduce token usage."""
+    # Store full dataframe for specific lookups
+    global stored_dataframe
+    stored_dataframe = df
+
+    # Minimal summary
+    summary = f"Data: {file_info['num_rows']} rows, {file_info['num_columns']} columns\n"
     summary += f"Columns: {', '.join(file_info['column_names'])}\n"
-    # Detect errors
-    errors = detect_data_errors(df)
-    # Find trends (simple example: check if numeric columns are increasing or decreasing)
+
+    # For small datasets (≤30 rows), include all data for accuracy
+    if len(df) <= 30:
+        summary += f"Complete data:\n{df.to_string(index=True)}\n"
+    else:
+        # For larger datasets, include strategic sample
+        summary += f"Sample data (first 5):\n{df.head(5).to_string(index=True)}\n"
+        summary += f"Sample data (last 5):\n{df.tail(5).to_string(index=True)}\n"
+
+    # Minimal stats - only sums for numeric columns
+    numeric_cols = df.select_dtypes(include=[np.number]).columns
+    if len(numeric_cols) > 0:
+        sums = {col: df[col].sum() for col in numeric_cols}
+        summary += f"Column sums: {sums}\n"
+
+    errors = []
     trends = []
-    for col in df.select_dtypes(include=[np.number]).columns:
-        col_data = df[col].dropna()
-        if len(col_data) > 1:
-            direction = "increasing" if col_data.iloc[-1] > col_data.iloc[0] else "decreasing"
-            trends.append({'column': col, 'direction': direction})
+
     return summary, errors, trends
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)

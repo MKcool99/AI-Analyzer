@@ -4,3 +4,5 @@ openpyxl
 xlrd
 openai
 python-dotenv
+numpy
+werkzeug

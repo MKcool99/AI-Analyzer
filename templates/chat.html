@@ -15,7 +15,12 @@
 <body>
 <nav class="navbar navbar-dark bg-dark">
     <div class="container-fluid">
-        <span class="navbar-brand mb-0 h1">Conversation</span>
+        <span class="navbar-brand mb-0 h1">
+            <i class="bi bi-chat-dots-fill"></i> Conversation
+        </span>
+        <a href="/" class="btn btn-outline-light btn-sm">
+            <i class="bi bi-arrow-left"></i> Back to Home
+        </a>
     </div>
 </nav>
 <div class="container py-3">
@@ -36,7 +41,14 @@
                 </div>
                 <input type="hidden" id="fileId" value="{{ file_id }}">
             </form>
-            <div class="mt-2" id="loading" style="display:none;">Analyzing your data, please wait...</div>
+            <div class="mt-2" id="loading" style="display:none;">
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <span>🤖 AI is analyzing your data, please wait...</span>
+                </div>
+            </div>
         </div>
         <div class="col-md-4">
             {% if errors %}

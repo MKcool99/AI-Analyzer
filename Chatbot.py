@@ -6,7 +6,7 @@ import os
 
 load_dotenv()  
 
-client = OpenAI()
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def ask_openai(prompt, model="gpt-3.5-turbo", temperature=0.7, max_tokens=300):
     """Send a single prompt to OpenAI and return the response text."""
