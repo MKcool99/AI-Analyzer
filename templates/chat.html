@@ -3,97 +3,401 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Assistant - {{ file_info.filename }}</title>
+    <title>Ask Your Spreadsheet - {{ file_info.filename if file_info else "Home" }}</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css" rel="stylesheet">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.10.5/font/bootstrap-icons.min.css" rel="stylesheet">
     <style>
-        .chat-box { max-height: 400px; overflow-y: auto; border: 1px solid #dee2e6; padding: 1rem; margin-bottom: 1rem; }
-        .question { background:#008000; color:#fff; padding:.5rem .75rem; border-radius:1rem; margin-bottom:.5rem; }
-        .answer { background:#f1f3f5; padding:.5rem .75rem; border-radius:1rem; margin-bottom:.5rem; }
+        :root {
+            --primary: #2c3e50; --secondary: #3498db; --accent: #e74c3c; --success: #27ae60;
+            --warning: #f39c12; --light-bg: #ecf0f1; --white: #ffffff; --text-dark: #2c3e50;
+            --border: #bdc3c7; --shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            padding-top: 4rem; background: linear-gradient(135deg, var(--light-bg) 0%, #d5dbdb 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: var(--text-dark);
+        }
+
+        .navbar {
+            background: linear-gradient(135deg, var(--primary) 0%, #34495e 100%) !important;
+            box-shadow: var(--shadow); border-bottom: 3px solid var(--secondary); height: 56px;
+        }
+
+        .logo { font-size: 1.4rem; font-weight: 700; text-shadow: 1px 1px 2px rgba(0,0,0,0.3); }
+        .logo i { color: var(--secondary); margin-right: 0.5rem; }
+
+        .form-container, .card {
+            background: var(--white); border-radius: 15px; padding: 2rem; box-shadow: var(--shadow);
+            border: 1px solid var(--border); margin: 2rem 0;
+        }
+
+        .form-container h4 { color: var(--primary); margin-bottom: 1rem; font-weight: 600; }
+
+        .form-control {
+            border-radius: 8px; border: 2px solid #e9ecef; padding: 0.75rem; transition: all 0.3s ease;
+        }
+        .form-control:focus {
+            border-color: var(--secondary); box-shadow: 0 0 0 0.2rem rgba(52, 152, 219, 0.25);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--secondary) 0%, #2980b9 100%); border: none;
+            border-radius: 8px; padding: 0.75rem 1.5rem; font-weight: 600; transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(52, 152, 219, 0.3);
+        }
+        .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(52, 152, 219, 0.4); }
+
+        .chat-container {
+            height: 500px; overflow-y: auto; border: 1px solid var(--border); border-radius: 12px;
+            padding: 1.5rem; background: var(--white); box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .question-bubble {
+            background: linear-gradient(135deg, var(--secondary) 0%, #2980b9 100%); color: white;
+            padding: 1rem 1.25rem; border-radius: 18px 18px 4px 18px; margin: 0.75rem 0 0.75rem auto;
+            max-width: 75%; word-wrap: break-word; box-shadow: 0 3px 8px rgba(52, 152, 219, 0.3);
+        }
+
+        .answer-bubble {
+            background: linear-gradient(135deg, var(--success) 0%, #229954 100%); color: white;
+            padding: 1.25rem; border-radius: 18px 18px 18px 4px; margin: 0.75rem auto 0.75rem 0;
+            max-width: 85%; word-wrap: break-word; box-shadow: 0 3px 8px rgba(39, 174, 96, 0.3);
+        }
+
+        .timestamp { font-size: 0.7rem; opacity: 0.8; margin-top: 0.5rem; font-style: italic; }
+
+        .question-input-container {
+            position: sticky; bottom: 0; background: var(--white); padding: 1.5rem;
+            border-top: 2px solid var(--border); border-radius: 0 0 12px 12px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+        }
+
+        .status-indicators { height: 80px; display: flex; align-items: center; margin-bottom: 2rem; }
+        .status-card {
+            flex: 1; padding: 1rem; border-radius: 12px; text-align: center; font-size: 0.9rem;
+            font-weight: 600; transition: all 0.3s ease; cursor: pointer;
+        }
+        .status-card:hover { transform: translateY(-3px); box-shadow: 0 6px 15px rgba(0,0,0,0.15); }
+
+        .status-good { background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); border: 2px solid var(--success); color: #155724; }
+        .status-warning { background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%); border: 2px solid var(--warning); color: #856404; }
+        .status-info { background: linear-gradient(135deg, #d1ecf1 0%, #b8daff 100%); border: 2px solid var(--secondary); color: #0c5460; }
+
+        .card-header {
+            background: linear-gradient(135deg, var(--primary) 0%, #34495e 100%); color: var(--white);
+            border-radius: 12px 12px 0 0 !important; font-weight: 600; padding: 1rem 1.25rem;
+        }
+
+        .quick-question {
+            margin: 3px; border-radius: 20px; font-size: 0.8rem; padding: 0.4rem 0.8rem; transition: all 0.3s ease;
+        }
+        .quick-question:hover { transform: scale(1.05); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+
+        .loading-spinner {
+            background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); border-radius: 12px; padding: 1rem;
+            border: 2px solid var(--secondary); box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+            height: 80px; display: flex; align-items: center; justify-content: center;
+        }
+
+        .loading-dots { display: inline-block; position: relative; width: 80px; height: 80px; }
+        .loading-dots div {
+            position: absolute; top: 33px; width: 13px; height: 13px; border-radius: 50%;
+            background: var(--secondary); animation-timing-function: cubic-bezier(0, 1, 1, 0);
+        }
+        .loading-dots div:nth-child(1) { left: 8px; animation: loading-dots1 0.6s infinite; }
+        .loading-dots div:nth-child(2) { left: 8px; animation: loading-dots2 0.6s infinite; }
+        .loading-dots div:nth-child(3) { left: 32px; animation: loading-dots2 0.6s infinite; }
+        .loading-dots div:nth-child(4) { left: 56px; animation: loading-dots3 0.6s infinite; }
+
+        @keyframes loading-dots1 { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+        @keyframes loading-dots3 { 0% { transform: scale(1); } 100% { transform: scale(0); } }
+        @keyframes loading-dots2 { 0% { transform: translate(0, 0); } 100% { transform: translate(24px, 0); } }
+
+        .back-button {
+            position: fixed; top: 80px; left: 20px; z-index: 1000;
+            background: linear-gradient(135deg, var(--primary) 0%, #34495e 100%); border: none;
+            border-radius: 50px; padding: 12px 20px; color: white; font-weight: 600;
+            box-shadow: 0 4px 15px rgba(44, 62, 80, 0.3); transition: all 0.3s ease;
+            text-decoration: none; display: inline-flex; align-items: center; gap: 8px;
+        }
+        .back-button:hover {
+            transform: translateY(-2px); box-shadow: 0 6px 20px rgba(44, 62, 80, 0.4);
+            color: white; text-decoration: none;
+        }
+
+        .gradient-text {
+            background: linear-gradient(45deg, var(--secondary), var(--accent));
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text; font-weight: bold;
+        }
+
+        .btn-enhanced { position: relative; overflow: hidden; transition: all 0.3s ease; }
+        .btn-enhanced::before {
+            content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease;
+        }
+        .btn-enhanced:hover::before { left: 100%; }
+
+        @media (max-width: 768px) {
+            .status-indicators { flex-direction: column; gap: 0.5rem !important; }
+            .question-bubble, .answer-bubble { max-width: 95%; margin-left: 0; margin-right: 0; }
+            .container { padding: 0.5rem; }
+            .chat-container { height: 300px; }
+        }
     </style>
 </head>
 <body>
-<nav class="navbar navbar-dark bg-dark">
-    <div class="container-fluid">
-        <span class="navbar-brand mb-0 h1">
-            <i class="bi bi-chat-dots-fill"></i> Conversation
-        </span>
-        <a href="/" class="btn btn-outline-light btn-sm">
-            <i class="bi bi-arrow-left"></i> Back to Home
-        </a>
-    </div>
-</nav>
-<div class="container py-3">
-    <h3 class="mb-3">{{ file_info.filename }}</h3>
-    <div class="row">
-        <div class="col-md-8">
-            <div class="chat-box" id="chatBox">
-                {% for qa in qa_history %}
-                    <div class="question"><strong>You:</strong> {{ qa.question }}</div>
-                    <div class="answer"><strong>AI:</strong> {{ qa.answer }}</div>
-                {% endfor %}
+    <nav class="navbar navbar-dark bg-dark fixed-top">
+        <div class="container-fluid">
+            <span class="navbar-brand logo">
+                <i class="bi bi-bar-chart-fill"></i> Ask Your Spreadsheet
+            </span>
+        </div>
+    </nav>
+
+    {% if file_info %}
+    <a href="/" class="back-button">
+        <i class="bi bi-arrow-left"></i> Back to Home
+    </a>
+    {% endif %}
+
+    <div class="container mt-4">
+        <div class="chat-header bg-light p-3 rounded mb-3">
+            <h4>🤖 AI Assistant - {{ file_info.filename }}</h4>
+            <p class="text-muted mb-0">Ask anything about your data below.</p>
+        </div>
+
+        <div class="status-indicators d-flex gap-3 mb-3">
+            <div class="status-card {% if not errors %}status-good{% else %}status-warning{% endif %}">
+                <strong>Data Quality</strong><br>
+                {% if not errors %}✅ No Issues{% else %}⚠️ {{ errors|length }} Issues{% endif %}
             </div>
-            <form id="questionForm">
-                <label for="questionInput" class="form-label visually-hidden">Your Question</label>
-                <div class="input-group mb-3">
-                    <input type="text" class="form-control" id="questionInput" placeholder="Ask another question..." aria-label="Question" required>
-                    <button class="btn btn-primary" type="submit">Ask</button>
-                </div>
-                <input type="hidden" id="fileId" value="{{ file_id }}">
-            </form>
-            <div class="mt-2" id="loading" style="display:none;">
-                <div class="d-flex align-items-center">
-                    <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
-                        <span class="visually-hidden">Loading...</span>
+            <div class="status-card status-info">
+                <strong>Dimensions</strong><br>
+                📊 {{ "{:,}".format(file_info.num_rows) }} × {{ file_info.num_columns }}
+            </div>
+            <div class="status-card status-info">
+                <strong>Trends</strong><br>
+                {% if trends %}📈 {{ trends|length }} Detected{% else %}📋 No Trends{% endif %}
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card mb-3">
+                    <div class="card-header">
+                        💬 Conversation History <small class="text-muted float-end">{{ qa_history|length }} questions</small>
                     </div>
-                    <span>🤖 AI is analyzing your data, please wait...</span>
+                    <div class="card-body p-0">
+                        <div class="chat-container">
+                            {% for qa in qa_history %}
+                            <div class="d-flex justify-content-end">
+                                <div class="question-bubble">
+                                    <strong>You:</strong> {{ qa.question }}
+                                    <div class="timestamp">{{ qa.timestamp.strftime('%H:%M:%S') }}</div>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-start">
+                                <div class="answer-bubble">
+                                    <strong>AI:</strong><br>{{ qa.answer }}
+                                    <div class="timestamp">{{ qa.timestamp.strftime('%H:%M:%S') }}</div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-input-container">
+                    <form id="questionForm">
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="questionInput" 
+                                   placeholder="Ask another question about your data..." required>
+                            <button class="btn btn-primary" type="submit">
+                                <i class="bi bi-send"></i> Ask AI
+                            </button>
+                        </div>
+                        <input type="hidden" id="fileId" value="{{ file_id }}">
+                    </form>
+                    <div class="loading-spinner mt-2" id="loadingSpinner" style="display:none;">
+                        <div class="d-flex align-items-center">
+                            <div class="spinner-border spinner-border-sm text-primary me-2"></div>
+                            <span>AI is thinking...</span>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">Quick suggestions:</small><br>
+                        <button class="btn btn-outline-secondary btn-sm quick-question" data-question="What are the key insights from this data?">Key Insights</button>
+                        <button class="btn btn-outline-secondary btn-sm quick-question" data-question="What trends do you see in the data?">Trends</button>
+                        <button class="btn btn-outline-secondary btn-sm quick-question" data-question="What's the summary of key statistics?">Statistics</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                {% if errors %}
+                <div class="card border-warning mb-3">
+                    <div class="card-header bg-warning text-dark">⚠️ Data Quality Issues</div>
+                    <div class="card-body">
+                        {% for error in errors[:3] %}
+                        <div class="alert alert-warning alert-sm">{{ error }}</div>
+                        {% endfor %}
+                        {% if errors|length > 3 %}
+                        <details>
+                            <summary class="text-muted">Show {{ errors|length - 3 }} more…</summary>
+                            {% for error in errors[3:] %}
+                            <div class="alert alert-warning alert-sm mt-1">{{ error }}</div>
+                            {% endfor %}
+                        </details>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if trends %}
+                <div class="card border-success mb-3">
+                    <div class="card-header bg-success text-white">📈 Trend Analysis</div>
+                    <div class="card-body">
+                        {% for trend in trends %}
+                        <div class="mb-2">
+                            <strong>{{ trend.column }}:</strong>
+                            <span class="badge bg-{% if trend.direction == 'increasing' %}success{% elif trend.direction == 'decreasing' %}danger{% else %}secondary{% endif %}">
+                                {{ trend.direction.upper() }}
+                            </span><br>
+                            <small class="text-muted">
+                                {{ "{:,.2f}".format(trend.start_value) }} → {{ "{:,.2f}".format(trend.end_value) }}
+                                ({{ "{:+.1f}".format(trend.change_percent) }}%)
+                            </small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="card mb-3">
+                    <div class="card-header">📋 File Information</div>
+                    <div class="card-body">
+                        <p><strong>Filename:</strong> {{ file_info.filename }}</p>
+                        <p><strong>Rows:</strong> {{ "{:,}".format(file_info.num_rows) }}</p>
+                        <p><strong>Columns:</strong> {{ file_info.num_columns }}</p>
+                        <p><strong>Sheets:</strong> {{ file_info.sheet_names | join(', ') }}</p>
+                        <details>
+                            <summary>Column Names</summary>
+                            <div class="mt-2">
+                                {% for col in file_info.column_names %}
+                                <span class="badge bg-secondary me-1">{{ col }}</span>
+                                {% endfor %}
+                            </div>
+                        </details>
+                    </div>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            {% if errors %}
-            <div class="mb-3">
-                <h6>Data Quality Issues</h6>
-                <ul>
-                    {% for e in errors %}<li>{{ e }}</li>{% endfor %}
-                </ul>
-            </div>
-            {% endif %}
-            {% if trends %}
-            <div class="mb-3">
-                <h6>Trend Analysis</h6>
-                <ul>
-                    {% for t in trends %}<li>{{ t.column }}: {{ t.direction }}</li>{% endfor %}
-                </ul>
-            </div>
-            {% endif %}
+        <div class="mb-4" role="region" aria-label="Spreadsheet preview">
+            {{ file_data | safe }}
         </div>
     </div>
-    <div class="mb-4" role="region" aria-label="Spreadsheet preview">
-        {{ file_data | safe }}
-    </div>
-</div>
-<script>
-$(function(){
-    $('#questionForm').on('submit', function(e){
-        e.preventDefault();
-        const q = $('#questionInput').val().trim();
-        if(!q) return;
-        $('#loading').show();
-        $.post('/ask_question', {file_id: $('#fileId').val(), question: q})
-        .done(function(data){
-            $('#loading').hide();
-            $('#chatBox').append('<div class="question"><strong>You:</strong> '+data.question+'</div>');
-            $('#chatBox').append('<div class="answer"><strong>AI:</strong> '+data.answer+'</div>');
-            $('#questionInput').val('');
-            $('#chatBox').scrollTop($('#chatBox')[0].scrollHeight);
-        })
-        .fail(function(xhr){
-            $('#loading').hide();
-            alert(xhr.responseJSON ? xhr.responseJSON.error : 'Error');
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $("#uploadForm").on("submit", function(e) {
+                const fileInput = $("#file")[0];
+                const questionInput = $("#question").val().trim();
+
+                if (!fileInput.files.length) {
+                    alert("Please select an Excel file to upload.");
+                    e.preventDefault();
+                    return;
+                }
+
+                if (!questionInput) {
+                    alert("Please enter a question about your data.");
+                    e.preventDefault();
+                    return;
+                }
+
+                $("#uploadLoadingSpinner").show();
+                $(this).find("button[type='submit']").prop("disabled", true).html("<i class=\"bi bi-hourglass-split\"></i> Processing...");
+            });
+
+            $("#questionForm").on("submit", function(e) {
+                e.preventDefault();
+                const question = $("#questionInput").val().trim();
+
+                if (!question) {
+                    alert("Please enter a question.");
+                    return;
+                }
+
+                $("#loadingSpinner").show();
+                $(this).find("button[type='submit']").prop("disabled", true).html("<i class=\"bi bi-hourglass-split\"></i> Thinking...");
+
+                const fileId = $("#fileId").val();
+
+                $.post("/ask_question", {
+                    file_id: fileId,
+                    question: question
+                })
+                .done(function(data) {
+                    $("#loadingSpinner").hide();
+                    $("#questionForm button[type='submit']").prop("disabled", false).html("<i class=\"bi bi-send\"></i> Ask AI");
+
+                    const chatContainer = $(".chat-container");
+                    const now = new Date().toLocaleTimeString();
+
+                    const questionBubble = $(`
+                        <div class="d-flex justify-content-end">
+                            <div class="question-bubble">
+                                <strong>You:</strong> ${data.question}
+                                <div class="timestamp">${now}</div>
+                            </div>
+                        </div>
+                    `);
+                    chatContainer.append(questionBubble);
+
+                    const answerBubble = $(`
+                        <div class="d-flex justify-content-start">
+                            <div class="answer-bubble">
+                                <strong>AI:</strong><br>${data.answer}
+                                <div class="timestamp">${now}</div>
+                            </div>
+                        </div>
+                    `);
+                    chatContainer.append(answerBubble);
+
+                    $("#questionInput").val("");
+                    chatContainer.scrollTop(chatContainer[0].scrollHeight);
+                })
+                .fail(function(xhr) {
+                    $("#loadingSpinner").hide();
+                    $("#questionForm button[type='submit']").prop("disabled", false).html("<i class=\"bi bi-send\"></i> Ask AI");
+
+                    const errorMsg = xhr.responseJSON ? xhr.responseJSON.error : "Error processing your question";
+                    alert(errorMsg);
+                });
+            });
+
+            $(".quick-question").on("click", function() {
+                const question = $(this).data("question");
+                $("#questionInput").val(question);
+                $("#questionForm").submit();
+            });
+
+            $("#file").on("change", function() {
+                const file = this.files[0];
+                if (file) {
+                    const fileSize = (file.size / 1024 / 1024).toFixed(2);
+                    const fileName = file.name;
+                    $("#file-help").html(`Selected: ${fileName} (${fileSize} MB)`);
+                    $(this).addClass("is-valid");
+                }
+            });
         });
-    });
-});
-</script>
+    </script>
 </body>
 </html>
+
+
