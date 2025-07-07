@@ -284,7 +284,19 @@ def create_enhanced_data_summary(df, file_info, file):
         summary += f"Column sums: {sums}\n"
 
     errors = detect_data_errors(df)
-    trends = []  # Placeholder for trend detection
+
+    trends = []
+    for col in numeric_cols:
+        values = df[col].dropna().values
+        if len(values) < 2:
+            trend = "insufficient data"
+        elif all(x < y for x, y in zip(values, values[1:])):
+            trend = "increasing"
+        elif all(x > y for x, y in zip(values, values[1:])):
+            trend = "decreasing"
+        else:
+            trend = "mixed"
+        trends.append(f"{col}: {trend}")
 
     return summary, errors, trends
 
